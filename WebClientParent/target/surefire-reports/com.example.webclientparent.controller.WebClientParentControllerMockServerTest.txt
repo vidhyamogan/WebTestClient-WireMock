@@ -1,0 +1,16 @@
+-------------------------------------------------------------------------------
+Test set: com.example.webclientparent.controller.WebClientParentControllerMockServerTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 3, Errors: 0, Skipped: 0, Time elapsed: 27.61 s <<< FAILURE! - in com.example.webclientparent.controller.WebClientParentControllerMockServerTest
+getChildResponseTest  Time elapsed: 3.101 s  <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<404>
+	at com.example.webclientparent.controller.WebClientParentControllerMockServerTest.getChildResponseTest(WebClientParentControllerMockServerTest.java:89)
+
+getChildResponseTest500  Time elapsed: 0.093 s  <<< FAILURE!
+java.lang.AssertionError: Range for response status value 404 expected:<SERVER_ERROR> but was:<CLIENT_ERROR>
+	at com.example.webclientparent.controller.WebClientParentControllerMockServerTest.getChildResponseTest500(WebClientParentControllerMockServerTest.java:130)
+
+getPostResponse  Time elapsed: 0.203 s  <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<404>
+	at com.example.webclientparent.controller.WebClientParentControllerMockServerTest.getPostResponse(WebClientParentControllerMockServerTest.java:152)
+

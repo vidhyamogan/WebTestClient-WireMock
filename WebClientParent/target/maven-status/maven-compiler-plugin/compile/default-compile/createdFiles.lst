@@ -1,0 +1,5 @@
+model\Token.class
+model\HttpRequestContext.class
+com\example\webclientparent\WebClientParentApplication.class
+com\example\webclientparent\controller\WebClientParentController.class
+com\example\webclientparent\WebClientConfiguration.class

@@ -1,0 +1,12 @@
+-------------------------------------------------------------------------------
+Test set: com.example.webclientparent.controller.WebClientParentControllerTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 6.53 s <<< FAILURE! - in com.example.webclientparent.controller.WebClientParentControllerTest
+getChildResponseTest  Time elapsed: 0.375 s  <<< FAILURE!
+java.lang.AssertionError: Status expected:<200 OK> but was:<404 NOT_FOUND>
+	at com.example.webclientparent.controller.WebClientParentControllerTest.getChildResponseTest(WebClientParentControllerTest.java:38)
+
+getPostResponse  Time elapsed: 0.236 s  <<< FAILURE!
+java.lang.AssertionError: Status expected:<200 OK> but was:<404 NOT_FOUND>
+	at com.example.webclientparent.controller.WebClientParentControllerTest.getPostResponse(WebClientParentControllerTest.java:56)
+
