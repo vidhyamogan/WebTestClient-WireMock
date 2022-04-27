@@ -1,9 +1,13 @@
 package com.example.webclientparent.controller;
 
+
 import model.Token;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.ParallelFlux;
 
 import java.util.List;
@@ -29,16 +33,6 @@ public class WebClientSimultanousController {
     public List<Token> getTokens(@RequestBody List<Integer> tokenIds)
     {
          return this.fetchTokens(tokenIds);
-    }
-
-    @GetMapping("/block")
-    public Token getToken()
-    {
-        return this.customWebClient.get()
-                .uri("/token/{id}", 100)
-                .retrieve()
-                .bodyToMono(Token.class)
-                .block();
     }
 
     @PostMapping("/parallel/tokens")
@@ -75,6 +69,24 @@ public class WebClientSimultanousController {
                 .retrieve()
                 .bodyToMono(Token.class).block();
     }
+
+    @GetMapping("/block")
+    public Token getToken()
+    {
+        return this.customWebClient.get()
+                .uri("/token/{id}", 100)
+                .retrieve().onStatus(HttpStatus::is4xxClientError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,"Not found error")))
+                .onStatus(HttpStatus::is5xxServerError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
+                .bodyToMono(Token.class)
+                .block();
+    }
+
+
+
 
 
 
