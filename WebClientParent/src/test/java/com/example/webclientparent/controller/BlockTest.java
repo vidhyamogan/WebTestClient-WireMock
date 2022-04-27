@@ -4,10 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import model.Token;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -58,11 +55,15 @@ public class BlockTest {
         wireMockServer.stop();
     }
 
+    @BeforeEach
+    public void setUpWebTestClient()
+    {
+        webTestClient = MockMvcWebTestClient.bindToApplicationContext(applicationContext).build();
+    }
+
     @Test
     void test1()
     {
-        webTestClient = MockMvcWebTestClient.bindToApplicationContext(applicationContext).build();
-
         wireMockServer.stubFor(
                 WireMock.get("/token/100")
                         .willReturn(WireMock.aResponse().withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -78,6 +79,45 @@ public class BlockTest {
 
     }
 
+    @Test
+    void test_400()
+    {
+        wireMockServer.stubFor(
+                WireMock.get("/token/100")
+                        .willReturn(WireMock.aResponse()
+                                .withStatus(400)
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE))
+
+        );
+
+        this.webTestClient
+                .get()
+                .uri("/public/block")
+                .exchange()
+                .expectStatus().is4xxClientError();
+
+
+    }
+
+    @Test
+    void test_500()
+    {
+        wireMockServer.stubFor(
+                WireMock.get("/token/100")
+                        .willReturn(WireMock.aResponse()
+                                .withStatus(500)
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE))
+
+        );
+
+        this.webTestClient
+                .get()
+                .uri("/public/block")
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+
+    }
 
     @Test
     public void test2() throws Exception {
