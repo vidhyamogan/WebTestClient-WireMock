@@ -3,6 +3,7 @@ package com.example.webclientparent.controller;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import io.netty.handler.timeout.ReadTimeoutException;
 import model.Token;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,9 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.client.MockMvcWebTestClient;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +26,8 @@ import java.util.stream.IntStream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -142,6 +147,97 @@ public class BlockTest {
                         .post().uri("/public/tokens")
                         .bodyValue(tokenIds).exchange()
                         .expectStatus().isOk();
+
+    }
+
+
+    @Test //out of 4 call Last call failed with 400"
+    public void test_mutipleCalls() throws Exception {
+        int maxNum = 103;
+        for(int i = 100 ;i<maxNum;i++)
+        {
+            wireMockServer.stubFor(get("/token/"+i)
+                    .willReturn(aResponse()
+                            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .withStatus(200)
+                            .withBodyFile("block-api/response-200.json"))
+            );
+        }
+
+        wireMockServer.stubFor(get("/token/"+103)
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(400))
+        );
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(100,maxNum)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        this.webTestClient
+                .post().uri("/public/tokens")
+                .bodyValue(tokenIds).exchange()
+                .expectStatus().is4xxClientError();
+
+    }
+
+    //out of 4 call 2 call failed with 500
+    @Test
+    public void test_mutipleCalls500() throws Exception {
+        int maxNum = 103;
+
+        for(int i = 100 ;i<maxNum;i++)
+        {
+            int status = 200;
+            if(i==102)
+                status = 500;
+
+            wireMockServer.stubFor(get("/token/"+i)
+                    .willReturn(aResponse()
+                            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .withStatus(status))
+            );
+
+        }
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(100,maxNum)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        this.webTestClient
+                .post().uri("/public/tokens")
+                .bodyValue(tokenIds).exchange()
+                .expectStatus().is5xxServerError();
+
+    }
+
+    @Test
+    void test_Delay()
+    {
+        wireMockServer.stubFor(
+                WireMock.get("/token/100")
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                .withFixedDelay(500000)
+                                .withBodyFile("block-api/response-200.json"))
+        );
+
+
+
+
+        WebClientRequestException exception = assertThrows(WebClientRequestException.class,()->{
+            this.webTestClient
+                    .get()
+                    .uri("/public/exception")
+                    .exchange();
+        });
+       System.out.println("exception messgae"+ exception.getHeaders());
+       assertTrue(exception.getMessage().contains("ReadTimeoutException"));
 
     }
 

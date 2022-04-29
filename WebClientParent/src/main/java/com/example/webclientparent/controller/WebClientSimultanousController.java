@@ -1,16 +1,21 @@
 package com.example.webclientparent.controller;
 
 
+import io.netty.handler.timeout.ReadTimeoutException;
+import io.netty.handler.timeout.TimeoutException;
 import model.Token;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.ParallelFlux;
 
+
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @RestController
@@ -66,14 +71,34 @@ public class WebClientSimultanousController {
     public Token getToken(int id) {
         return this.customWebClient.get()
                 .uri("/token/{id}", id)
-                .retrieve()
+                .retrieve().onStatus(HttpStatus::is4xxClientError,
+                clientResponse ->
+                        Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,"Not found error")))
+                .onStatus(HttpStatus::is5xxServerError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
                 .bodyToMono(Token.class).block();
     }
+
+
+    /* WebClient has timeout of 10000 ,
+     if request is not received within the specified time WebClientRequestException will be thrown*/
+
+    @GetMapping("/exception")
+    public Token getException()
+    {
+        Mono<Token> token;
+        token = this.customWebClient.get()
+                .uri("/token/{id}", 100)
+                .retrieve().bodyToMono(Token.class);
+        return token.block();
+    }
+
 
     @GetMapping("/block")
     public Token getToken()
     {
-        return this.customWebClient.get()
+        Token token = this.customWebClient.get()
                 .uri("/token/{id}", 100)
                 .retrieve().onStatus(HttpStatus::is4xxClientError,
                         clientResponse ->
@@ -83,8 +108,10 @@ public class WebClientSimultanousController {
                                 Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
                 .bodyToMono(Token.class)
                 .block();
-    }
 
+
+        return token;
+    }
 
 
 
