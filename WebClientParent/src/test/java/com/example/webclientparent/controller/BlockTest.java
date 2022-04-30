@@ -84,6 +84,7 @@ public class BlockTest {
 
     }
 
+
     @Test
     void test_400()
     {
@@ -238,6 +239,24 @@ public class BlockTest {
         });
        System.out.println("exception messgae"+ exception.getHeaders());
        assertTrue(exception.getMessage().contains("ReadTimeoutException"));
+
+    }
+
+    @Test
+    void test_logEvent()
+    {
+        wireMockServer.stubFor(
+                WireMock.get("/token/100")
+                        .willReturn(WireMock.aResponse().withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                .withBodyFile("block-api/response-200.json"))
+        );
+
+        this.webTestClient
+                .get()
+                .uri("/public/logEvent")
+                .exchange()
+                .expectStatus().isOk();
+
 
     }
 

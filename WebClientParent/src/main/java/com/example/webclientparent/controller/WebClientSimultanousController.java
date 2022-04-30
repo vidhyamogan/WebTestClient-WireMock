@@ -1,13 +1,12 @@
 package com.example.webclientparent.controller;
 
 
-import io.netty.handler.timeout.ReadTimeoutException;
-import io.netty.handler.timeout.TimeoutException;
+import model.LogEvent;
 import model.Token;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -15,17 +14,11 @@ import reactor.core.publisher.ParallelFlux;
 
 
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/public")
 public class WebClientSimultanousController {
-
-
-
-    /*//@Autowired
-    WebClient webClient = WebClient.builder().baseUrl(baseUrl).build();*/
 
     private final WebClient customWebClient;
 
@@ -78,6 +71,7 @@ public class WebClientSimultanousController {
                         clientResponse ->
                                 Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
                 .bodyToMono(Token.class).block();
+
     }
 
 
@@ -110,8 +104,68 @@ public class WebClientSimultanousController {
                 .block();
 
 
+
+
         return token;
     }
+
+
+    @GetMapping("/logEvent")
+    public Token getLogEvent()
+    {
+        Token token = this.customWebClient.get()
+                .uri("/token/{id}", 100)
+                .retrieve().onStatus(HttpStatus::is4xxClientError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,"Not found error")))
+                .onStatus(HttpStatus::is5xxServerError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
+                .bodyToMono(Token.class)
+                .block();
+
+
+        //tHIS IS simple call for the request which is not mocked or stubbed
+        String logEvent = WebClient.builder().build().get()
+            .uri("http://splunklog1.comlogRequest")
+            .retrieve().bodyToMono(String.class)
+            .block();
+        System.out.println("Log Event===>"+ logEvent);
+
+
+        return token;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
