@@ -66,6 +66,7 @@ public class BlockTest {
         webTestClient = MockMvcWebTestClient.bindToApplicationContext(applicationContext).build();
     }
 
+    //Test single api call - with success
     @Test
     void test1()
     {
@@ -85,6 +86,7 @@ public class BlockTest {
     }
 
 
+    //Test single api call - with 400
     @Test
     void test_400()
     {
@@ -92,6 +94,7 @@ public class BlockTest {
                 WireMock.get("/token/100")
                         .willReturn(WireMock.aResponse()
                                 .withStatus(400)
+                                .withBody("Not Found Error from test case")
                                 .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE))
 
         );
@@ -105,6 +108,7 @@ public class BlockTest {
 
     }
 
+    //Test single api call - with 500
     @Test
     void test_500()
     {
@@ -125,6 +129,7 @@ public class BlockTest {
 
     }
 
+    //Test multiple api call - with success - sequentailly
     @Test
     public void test2() throws Exception {
         int maxNum = 103;
@@ -152,7 +157,9 @@ public class BlockTest {
     }
 
 
-    @Test //out of 4 call Last call failed with 400"
+    //out of 4 call Last call failed with 400 - Mono.error will be thrown
+    // and subsequent calls will be dismissed
+    @Test
     public void test_mutipleCalls() throws Exception {
         int maxNum = 103;
         for(int i = 100 ;i<maxNum;i++)
@@ -180,11 +187,13 @@ public class BlockTest {
         this.webTestClient
                 .post().uri("/public/tokens")
                 .bodyValue(tokenIds).exchange()
-                .expectStatus().is4xxClientError();
+                .expectStatus().is4xxClientError()
+                .expectBody();//check the content of the bad request
 
     }
 
-    //out of 4 call 2 call failed with 500
+    //out of 4 call 2nd call failed with 500 - Mono.error will be thrown
+    //and subsequent calls will be dismissed
     @Test
     public void test_mutipleCalls500() throws Exception {
         int maxNum = 103;
@@ -216,6 +225,107 @@ public class BlockTest {
 
     }
 
+    //Test multiple api call - when it reached 101 got read timeout exception
+    @Test
+    public void test_ParllelCalls() throws Exception {
+        int maxNum = 103;
+
+        for(int i = 100 ;i<=maxNum;i++)
+        {
+            if(i==101)
+            {
+                wireMockServer.stubFor(get("/token/"+i)
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                .withFixedDelay(500000))
+                );//when it reached 101 got read timeout exception
+            }else {
+                wireMockServer.stubFor(get("/token/"+i)
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                .withStatus(200))
+                );
+            }
+
+
+        }
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(100,maxNum)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        WebClientRequestException exception = assertThrows(WebClientRequestException.class,()->{
+            this.webTestClient
+                    .post().uri("/public/tokens")
+                    .bodyValue(tokenIds)
+                    .exchange();
+        });
+        System.out.println("exception messgae"+ exception.getHeaders());
+        assertTrue(exception.getMessage().contains("ReadTimeoutException"));
+
+    }
+
+    @Test // when it reaches 201 -- it has 500 response inbuilt
+    // and it will execute all other request and final outcome is 500
+    public void test_ParllelCalls_500() throws Exception {
+        int maxNum = 202;
+
+        for(int i = 200 ;i<=maxNum;i++)
+        {
+            int status =200;
+            if(i==201) status=500;
+            wireMockServer.stubFor(get("/token/"+i)
+                    .willReturn(aResponse()
+                            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .withStatus(status))
+            );
+
+        }
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(200,maxNum)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        this.webTestClient
+                .post().uri("/public/gatherAllObjects")
+                .bodyValue(tokenIds).exchange()
+                .expectStatus().is5xxServerError();
+
+    }
+
+
+    @Test //test  all api in parllel - and check for 200
+    public void test_mutipleParllelCalls() throws Exception {
+        int maxNum = 103;
+
+        for(int i = 100 ;i<=maxNum;i++)
+        {
+            wireMockServer.stubFor(get("/token/"+i)
+                    .willReturn(aResponse()
+                            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .withStatus(200))
+            );
+
+        }
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(100,maxNum)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        this.webTestClient
+                .post().uri("/public/parallel/tokens")
+                .bodyValue(tokenIds).exchange()
+                .expectStatus().isOk();
+
+    }
+
+    //deplay the api with 50ms and webclient is configured 10ms - so ReadTimeOutException will be thrown
     @Test
     void test_Delay()
     {
@@ -229,8 +339,6 @@ public class BlockTest {
         );
 
 
-
-
         WebClientRequestException exception = assertThrows(WebClientRequestException.class,()->{
             this.webTestClient
                     .get()
@@ -242,6 +350,8 @@ public class BlockTest {
 
     }
 
+    //single api is mocked and splunk api is not mocked so the test
+    // will fail because splunk api is not up and running
     @Test
     void test_logEvent()
     {
