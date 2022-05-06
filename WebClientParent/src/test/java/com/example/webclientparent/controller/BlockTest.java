@@ -193,13 +193,13 @@ public class BlockTest {
     }
 
     //out of 4 call 2nd call failed with 500 - Mono.error will be thrown
-    //and subsequent calls will be dismissed
+    //and subsequent calls will be continued and respond with 500
     @Test
     public void test_mutipleCalls500() throws Exception {
         int maxNum = 103;
 
         for(int i = 100 ;i<maxNum;i++)
-        {
+    {
             int status = 200;
             if(i==102)
                 status = 500;
@@ -369,6 +369,68 @@ public class BlockTest {
 
 
     }
+
+
+    /*@Test
+    void test_Error()
+    {
+        wireMockServer.stubFor(
+                WireMock.get("/token/100")
+                        .willReturn(WireMock.aResponse()
+                                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                .withStatus(400)
+                                .withBodyFile("block-api/responseToken-404.json"))
+
+        );
+
+        this.webTestClient
+                .get()
+                .uri("/public/errors")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.status").isEqualTo(400);
+    }*/
+
+
+    @Test //to test differernt api with different response and check the size of it
+    public void test_ParallelerrorResume() throws Exception {
+
+        wireMockServer.stubFor(get("/error/token/" + 301)
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(200)
+                        .withBodyFile("block-api/response-200.json"))
+
+        );
+
+        wireMockServer.stubFor(get("/error/token/" + 302)
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(404))
+        );
+
+        wireMockServer.stubFor(get("/error/token/" + 303)
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(500))
+        );
+
+        List<Integer> tokenIds = IntStream
+                .rangeClosed(301,303)
+                .boxed()
+                .collect(Collectors.toList());
+
+
+        this.webTestClient
+                .post().uri("/public/gatherError/tokens")
+                .bodyValue(tokenIds).exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Token.class).hasSize(3);
+
+    }
+
+
+
 
 
 }

@@ -136,9 +136,6 @@ public class WebClientSimultanousController {
                 .bodyToMono(Token.class)
                 .block();
 
-
-
-
         return token;
     }
 
@@ -170,38 +167,38 @@ public class WebClientSimultanousController {
     }
 
 
+    @PostMapping("/gatherError/tokens")
+    public List<Token> gatherError(@RequestBody List<Integer> tokenIds)
+    {
+        return tokenIds.parallelStream().map(this::getError).collect(Collectors.toList());
+    }
 
+    //Map the error to token object and will not block the execution
+    public Token getError(int id)
+    {
+        System.out.println("inside Error");
+        Token token = this.customWebClient.get()
+                .uri("/error/token/{id}", id)
+                .retrieve()
+                .onStatus(HttpStatus::is4xxClientError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,"Not found error")))
+                .onStatus(HttpStatus::is5xxServerError,
+                        clientResponse ->
+                                Mono.error(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
+                .bodyToMono(Token.class)
+                .onErrorResume(ResponseStatusException.class,e->handleAndStoreException(e,id))
+                .block();
 
+        return token;
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    //handle the error and store in token object with status code
+    private Mono<? extends Token> handleAndStoreException(ResponseStatusException exception,int id) {
+        System.out.println("Inside handleAndStoreException ==>"+ exception.getRawStatusCode());
+        Token token = new Token(id,exception.getRawStatusCode());
+        return Mono.just(token);
+    }
 
 
 }
