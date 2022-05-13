@@ -1,12 +1,14 @@
 [
   {
-  "tokenId": 301,
-  "status" : 200
-  },{
-  "tokenId": 302,
-  "status" : 404
-  },{
+    "tokenId": 301,
+    "status": 200
+  },
+  {
+    "tokenId": 302,
+    "status": 404
+  },
+  {
     "tokenId": 303,
-    "status" : 500
+    "status": 500
   }
 ]

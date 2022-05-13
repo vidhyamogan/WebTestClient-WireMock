@@ -1,9 +1,12 @@
 package com.example.webclientparent.controller;
 
 
+import com.example.webclientparent.exception.CustomForbiddenException;
 import model.LogEvent;
 import model.Token;
+import org.apache.coyote.Response;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -198,6 +201,34 @@ public class WebClientSimultanousController {
         System.out.println("Inside handleAndStoreException ==>"+ exception.getRawStatusCode());
         Token token = new Token(id,exception.getRawStatusCode());
         return Mono.just(token);
+    }
+
+
+    //Send the error message to the downservice when error/token throws error
+    @GetMapping("/doOnError")
+    public Token getErrorContinue(@RequestParam int id)
+    {
+        System.out.println("inside doOnError");
+        Token token = this.customWebClient.get()
+                .uri("/error/token/{id}", id)
+                .retrieve()
+                .onStatus(HttpStatus::is4xxClientError,
+                        clientResponse ->
+                                Mono.just(new ResponseStatusException(HttpStatus.NOT_FOUND,"Not found error")))
+                .onStatus(HttpStatus::is5xxServerError,
+                        clientResponse ->
+                                Mono.just(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error")))
+                .bodyToMono(Token.class)
+                .doOnError(throwable -> {
+                    System.out.println("Inside doOnError to log error message into the second service");
+                    this.customWebClient.post()
+                            .uri("/errorLogRequest")
+                            .bodyValue(throwable+"")
+                            .retrieve().bodyToMono(String.class);
+                })
+                .block();
+
+        return token;
     }
 
 

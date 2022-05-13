@@ -1,5 +1,6 @@
 package com.example.webclientparent.controller;
 
+import com.example.webclientparent.model.TokenWrapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -19,13 +20,14 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,11 +78,14 @@ public class BlockTest {
                                 .withBodyFile("block-api/response-200.json"))
         );
 
-        this.webTestClient
+       WebTestClient.ResponseSpec responseSpec = this.webTestClient
                 .get()
                 .uri("/public/block")
                 .exchange()
                 .expectStatus().isOk();
+
+       Token token = Mono.from(responseSpec.returnResult(Token.class).getResponseBody()).block();
+       Assertions.assertEquals(1001,token.getTokenId());
 
 
     }
@@ -139,7 +144,7 @@ public class BlockTest {
                     .willReturn(aResponse()
                             .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                             .withStatus(200)
-                            .withBodyFile("block-api/response-200.json"))
+                            .withBodyFile("block-api/responseTokenArray.json"))
             );
         }
 
@@ -149,10 +154,12 @@ public class BlockTest {
                 .collect(Collectors.toList());
 
 
-        this.webTestClient
+        WebTestClient.ResponseSpec responseSpec = this.webTestClient
                         .post().uri("/public/tokens")
                         .bodyValue(tokenIds).exchange()
                         .expectStatus().isOk();
+       //TokenWrapper tokenList = responseSpec.expectBody(TokenWrapper.class).returnResult().getResponseBody();
+       //Assertions.assertEquals(301,tokenList.getToken().get(0).getTokenId());
 
     }
 
@@ -247,7 +254,7 @@ public class BlockTest {
                 );
             }
 
-
+        //check the size of tokens****************
         }
 
         List<Integer> tokenIds = IntStream
@@ -421,12 +428,48 @@ public class BlockTest {
                 .collect(Collectors.toList());
 
 
-        this.webTestClient
+       WebTestClient.ListBodySpec listBodySpec = this.webTestClient
                 .post().uri("/public/gatherError/tokens")
                 .bodyValue(tokenIds).exchange()
                 .expectStatus().isOk()
-                .expectBodyList(Token.class).hasSize(3);
+                .expectBodyList(Token.class)
+                .hasSize(3);
 
+
+    }
+
+
+    // testcase to log the error request to logs  and give 200 response
+    @Test
+    public void test_donOnErrorwithrequestLog()
+    {
+        wireMockServer.stubFor(get("/error/token/" + 1001)
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(404)
+                        .withBodyFile("block-api/responseToken-404.json"))
+
+        );
+
+        wireMockServer.stubFor(post("/errorLogRequest")
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .withStatus(200))
+
+        );
+
+        WebTestClient.ResponseSpec response = this.webTestClient.get().uri(uriBuilder ->
+                        uriBuilder.path("/public/doOnError")
+                                .queryParam("id",1001)
+                                .build())
+                .accept(MediaType.ALL)
+                .header("Content-Type","application/json;charset=UTF-8")
+                .exchange()
+                .expectStatus().is4xxClientError();
+
+
+
+//objectMapper check for the object value
     }
 
 
